@@ -7,7 +7,10 @@ import java.awt.*;
 
 public class ReadExcelApplication extends JFrame {
 
-    private JFrame mainFrame;
+
+	private static final long serialVersionUID = -2403986595768389766L;
+	
+	private JFrame mainFrame;
     private JPanel mainPanel;
 
 

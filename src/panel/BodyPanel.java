@@ -1,20 +1,28 @@
 package panel;
 
 import javax.swing.*;
+
+import dao.ProcessFile;
+import dao.ProcessFileImpl;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.IOException;
 
 public class BodyPanel extends JPanel {
 
-    private String filename;
+	private static final long serialVersionUID = -720148068509698904L;
+	
+	private String filename;
     private String fname;
     private JButton startButton;
     private JTextField textField;
     private JLabel lblFilename;
     private JButton btnNewButton;
     private JButton btnCancel;
+    private ProcessFile processFile;
 
     public BodyPanel()
     {
@@ -67,6 +75,13 @@ public class BodyPanel extends JPanel {
 
                 //JOptionPane.showMessageDialog(rootPane, "File uploded for processing...!!!");
                 System.out.println("file reading from POI" + filename);
+                processFile= new ProcessFileImpl();
+                try {
+					processFile.process(filename);
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 
             }
         });
