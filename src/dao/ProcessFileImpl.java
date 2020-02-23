@@ -2,6 +2,8 @@ package dao;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,19 +16,22 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.CellType;
 
 public class ProcessFileImpl implements ProcessFile {
 
 	@Override
 	public void process(String fileName) throws IOException {
+		
+	
 		File file = new File(fileName);
 		// Create an object of FileInputStream class to read excel file
 		FileInputStream fis = new FileInputStream(file);
 
-		String fileExtensionName = fileName.substring(fileName.indexOf("."));
+		
 
 		Workbook addCatalog = null;
-
+		String fileExtensionName = fileName.substring(fileName.indexOf("."));
 		// Find the file extension by splitting file name in substring and getting only
 		// extension name
 		if (fileExtensionName.equals(".xsls")) {
@@ -45,19 +50,23 @@ public class ProcessFileImpl implements ProcessFile {
 		Sheet sheet1 = addCatalog.getSheetAt(0);
 		Sheet sheet2 = addCatalog.getSheetAt(1);
 
-		getColumn(coloumnNameSheet1, sheet1, 0);
-		getColumn(coloumnNameSheet2, sheet2, 1);
+		getHeader(coloumnNameSheet1, sheet1, 0);
+		getHeader(coloumnNameSheet2, sheet2, 1);
 		
 		//compare column
-		Map<String, Integer> commonColumn= compareColums(coloumnNameSheet1,coloumnNameSheet2);
+		Map<String, Integer> commonColumn= getCommonColums(coloumnNameSheet1,coloumnNameSheet2);
 		System.out.println("common coloumn");
 		commonColumn.keySet().stream().forEach(col -> System.out.println(col));
 		
-		System.out.println("col name is "+CellReference.convertNumToColString(1));
+	    //Get Column Mapping in sheet
+		Map<Integer, Integer> commonColumnMapping=getCommonColumsMapping(commonColumn,coloumnNameSheet2);
+		
+		//update sheet
+		updateSheet(fileName,addCatalog,commonColumnMapping,fis);
 
 	}
 
-	private void getColumn(Map<String, Integer> coloumnNameSheet, Sheet sheet, int romNum) {
+	private void getHeader(Map<String, Integer> coloumnNameSheet, Sheet sheet, int romNum) {
 
 		Row row = sheet.getRow(romNum);
 		
@@ -76,36 +85,84 @@ public class ProcessFileImpl implements ProcessFile {
 		}
 	}
 	
-	private Map<String, Integer> compareColums(Map<String, Integer> coloumnNameSheet1,Map<String, Integer> coloumnNameSheet2)
+	private Map<String, Integer> getCommonColums(Map<String, Integer> coloumnNameSheet1,Map<String, Integer> coloumnNameSheet2)
 	{
 		Map<String, Integer> commonMap = coloumnNameSheet1.entrySet().stream()
-		        .filter(x -> coloumnNameSheet2.containsKey(x.getKey()))
+		        .filter(x -> coloumnNameSheet2.containsKey(x.getKey().trim()))
 		        .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue()));
 		
 		return commonMap;
 	}
 	
-	private void write()
+	private  Map<Integer, Integer> getCommonColumsMapping(Map<String, Integer> commonColumnSheet1,Map<String, Integer> coloumnNameSheet2)
 	{
-		//for (int i = 1;j=3; i < row.getLastCellNum(); i++;j++) {
+	
+	
+		return commonColumnSheet1.entrySet().stream() .collect(Collectors.toMap(x -> x.getValue(), x -> coloumnNameSheet2.get(x.getKey().trim()) ));
 		
-		//Sheet 2 Row index= 3;
-		//Read sheet 1 
-		// row by row 
-		// get cell indexx
-		//Match cell index with value array of common hash map List<String> result2 = new ArrayList(map.values());  using contains
-		// Write in sheet 2
 		
-		 // Specific row number 
-        //Row row = sheet.createRow(j);   /// check row already exssit
-  
-        // Specific cell number 
-       // Cell cell = row.createCell(index of colum); 
-  
-        // putting value at specific position 
-       // cell.setCellValue("Geeks"); 
+	}
+	
+	private void updateSheet(String fileName,Workbook addCatalog,Map<Integer, Integer> commonColumsMapping,FileInputStream fis) throws IOException
+	{
+
+      // Get second sheet
+         Sheet sheet2 = addCatalog.getSheetAt(1); 
+         
+		for (Row row : addCatalog.getSheetAt(0)) {
+			
+		
+			if(row.getRowNum()==0)
+			{
+				continue;
+			}
+		    for (Cell cell : row) {
+		    	
+		    
+		    	if(commonColumsMapping.containsKey(cell.getColumnIndex()))
+		    	{
+		    		
+		            Row newRow =null;
+		            //check row already exist or not 
+		            if(sheet2.getRow(row.getRowNum()+2)==null)
+		            {
+		            	//create new row
+		            	 // Specific row number 
+		            	newRow=sheet2.createRow(row.getRowNum()+2); 
+		               
+		            }
+		            
+		            else
+		            {
+		            	newRow=sheet2.getRow(row.getRowNum()+2);
+		            }
+		            
+		            // Specific cell number in sheet 2
+		            Cell newCell = newRow.createCell(commonColumsMapping.get(cell.getColumnIndex())); 
+		      
+		            // putting value at specific position 
+		           
+		            switch (cell.getCellType()) { 
+                    case NUMERIC: 
+                    	 newCell.setCellValue(cell.getNumericCellValue());
+                        break; 
+                    case STRING: 
+                    	 newCell.setCellValue(cell.getStringCellValue());
+                        break; 
+                    } 
+		    	}
+		    }
+		}
+		 File file = new File(fileName);
+		 FileOutputStream outputStream = new FileOutputStream(file);
+		 addCatalog.write(outputStream);
+		 addCatalog.close();
+         outputStream.close();
+         fis.close();
+         System.out.println("File Updated");
+		
 		
 		
 	}
 
-}
+	}
