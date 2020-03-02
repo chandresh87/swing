@@ -1,28 +1,24 @@
 package dao;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-public class ProcessFileImpl implements ProcessFile {
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+public class ProcessFileImpl implements ProcessFile {
+ private int rowCount = 0;
 	@Override
 	public void process(String fileName) throws IOException {
 
@@ -144,37 +140,84 @@ public class ProcessFileImpl implements ProcessFile {
 			}
 		}
 		File file = new File(fileName);
-		FileOutputStream outputStream = new FileOutputStream(file);
-		addCatalog.write(outputStream);
-		addCatalog.close();
-		outputStream.close();
-		fis.close();
-		System.out.println("File Updated");
-		addHeader();
+        	FileOutputStream outputStream = new FileOutputStream(file);
+        	addCatalog.write(outputStream);
+
+        	System.out.println("File Updated");
+        	outputStream.close();
+        	addHeader(addCatalog, fis, fileName);
 	}
 
-	private void addHeader() throws IOException {
+	private void addHeader(Workbook addCatalog, FileInputStream fis, String fileName) throws IOException {
+        Cell cell = null;
 
-		URL urlLoader = ProcessFileImpl.class.getProtectionDomain().getCodeSource().getLocation();
-		String loaderDir = urlLoader.getPath();
-		System.out.printf("loaderDir", loaderDir);
+        URL urlLoader = ProcessFileImpl.class.getProtectionDomain().getCodeSource().getLocation();
+        String loaderDir = urlLoader.getPath();
+        System.out.println("loaderDir " + loaderDir);
 
-		File file = new File(loaderDir + "/ref/UnLimit.xlsx");
+        File file = new File(loaderDir + "ref/UnLimit.xlsx");
 
-		FileInputStream fis = new FileInputStream(file);
+        FileInputStream inputStream = new FileInputStream(file);
 
-		Workbook refBook = new XSSFWorkbook(fis);
-		Sheet sheet = refBook.getSheetAt(0);
-		Row row = sheet.getRow(0);
+        Workbook refBook = new XSSFWorkbook(inputStream);
+        Sheet sheetRef = refBook.getSheetAt(0);
+        System.out.println("Sheet Name is ****" + sheetRef.getSheetName());
 
-		System.out.println("Sheet Name is ****" + sheet.getSheetName());
+        Sheet sheetManual = addCatalog.getSheetAt(1);
 
-		for (int i = 0; i < row.getLastCellNum(); i++) {
-			Cell cell = row.getCell(i);
 
-			System.out.println("sheet values are" + cell.getColumnIndex() + " " + cell.getStringCellValue());
+        Iterator<Row> rowIterator = sheetRef.iterator();
+        while (rowIterator.hasNext()) {
 
-		}
-	}
+            Row rowInputSheet = rowIterator.next();
+
+            Row row = sheetManual.getRow(rowCount);
+            // get the last column index
+            int maxcell = row.getLastCellNum();
+            int maxcellRef = row.getLastCellNum();
+
+            System.out.println(maxcell);
+            // For each row, iterate through all the columns
+            Iterator<Cell> cellIterator = rowInputSheet.cellIterator();
+
+            while (cellIterator.hasNext()) {
+                Cell celldata = cellIterator.next();
+
+                celldata.getStringCellValue();
+                cell = row.getCell(maxcell);
+                if (cell == null)
+                    cell = row.createCell(maxcell);
+                System.out.println(celldata.getStringCellValue());
+                cell.setCellValue(celldata.getStringCellValue());
+
+                //Apply Style
+                CellStyle origStyle = celldata.getCellStyle();
+                CellStyle newStyle = addCatalog.createCellStyle();
+                newStyle.cloneStyleFrom(origStyle);
+
+                cell.setCellStyle(newStyle);
+                maxcell++;
+            }
+            sheetRef.getMergedRegions().forEach(cellAddresses ->
+                    {
+                        if (cellAddresses.getFirstRow() == rowCount) {
+                            sheetManual.addMergedRegion(new CellRangeAddress(cellAddresses.getFirstRow(), cellAddresses.getLastRow(), cellAddresses.getFirstColumn() + maxcellRef, cellAddresses.getLastColumn() + maxcellRef));
+                        }
+                    }
+            );
+
+            rowCount++;
+            System.out.print(" ");
+
+        }
+
+
+        FileOutputStream out = new FileOutputStream(fileName);
+        addCatalog.write(out);
+        out.close();
+        addCatalog.close();
+        fis.close();
+        inputStream.close();
+    }
 
 }
