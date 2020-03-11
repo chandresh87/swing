@@ -7,14 +7,22 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 public class ProcessFileImpl implements ProcessFile {
@@ -40,23 +48,31 @@ public class ProcessFileImpl implements ProcessFile {
 
 		// Read Sheet
 
-		HashMap<String, Integer> coloumnNameSheet2 = new HashMap<String, Integer>();
+		
 		HashMap<String, Integer> coloumnNameSheet1 = new HashMap<String, Integer>();
 
 		Sheet sheet1 = addCatalog.getSheetAt(0);
-		Sheet sheet2 = addCatalog.getSheetAt(1);
-
+		
+		//get header
 		getHeader(coloumnNameSheet1, sheet1, 0);
-		getHeader(coloumnNameSheet2, sheet2, 1);
+	
 
 		// compare column
-		Map<String, Integer> commonColumn = getCommonColums(coloumnNameSheet1, coloumnNameSheet2);
+		Map<String, Integer> commonColumn = getCommonColums(coloumnNameSheet1);
 		System.out.println("common coloumn");
 		commonColumn.keySet().stream().forEach(col -> System.out.println(col));
 
-		// Get Column Mapping in sheet
-		Map<Integer, Integer> commonColumnMapping = getCommonColumsMapping(commonColumn, coloumnNameSheet2);
-
+		List<Integer> commonColumnIndex =(List<Integer>) commonColumn.values();
+		Collections.sort(commonColumnIndex);
+		
+		Map<Integer, Integer> commonColumnMapping =new HashMap<Integer, Integer>();
+				
+		for(int i=0;i<commonColumnIndex.size();i++)
+		{
+			// Get Column Mapping in sheet
+			commonColumnMapping.put(commonColumnIndex.get(i), i);
+		}
+		
 		// update sheet
 		updateSheet(fileName, addCatalog, commonColumnMapping, fis);
 
@@ -78,22 +94,16 @@ public class ProcessFileImpl implements ProcessFile {
 		}
 	}
 
-	private Map<String, Integer> getCommonColums(Map<String, Integer> coloumnNameSheet1,
-			Map<String, Integer> coloumnNameSheet2) {
+	private Map<String, Integer> getCommonColums(Map<String, Integer> coloumnNameSheet1) {
+		List<String> commomCol= Arrays.asList(ColumnNameEnum.values()).stream().map(e -> e.getColumnName()).collect(Collectors.toList());
+       
 		Map<String, Integer> commonMap = coloumnNameSheet1.entrySet().stream()
-				.filter(x -> coloumnNameSheet2.containsKey(x.getKey().trim()))
+				.filter(x -> commomCol.contains(x.getKey().trim()))
 				.collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue()));
 
 		return commonMap;
 	}
 
-	private Map<Integer, Integer> getCommonColumsMapping(Map<String, Integer> commonColumnSheet1,
-			Map<String, Integer> coloumnNameSheet2) {
-
-		return commonColumnSheet1.entrySet().stream()
-				.collect(Collectors.toMap(x -> x.getValue(), x -> coloumnNameSheet2.get(x.getKey().trim())));
-
-	}
 
 	private void updateSheet(String fileName, Workbook addCatalog, Map<Integer, Integer> commonColumsMapping,
 			FileInputStream fis) throws IOException {
